@@ -1,0 +1,69 @@
+/* src/app/globals.css */
+
+/* Tailwind v4 single import */
+@import "tailwindcss";
+
+/* Tell Tailwind where to scan (v4 way) */
+@source "../app/**/*.{ts,tsx}", "../components/**/*.{ts,tsx}", "../lib/**/*.{ts,tsx}", "../context/**/*.{ts,tsx}";
+
+/* v4 theme tokens -> gives you classes like bg-brand-harbor, text-brand-ink */
+@theme {
+  --color-brand-harbor: #0E5E78;
+  --color-brand-ink: #0B1220;
+  --color-brand-slate: #1F2A37;
+  --color-brand-mist: #E6ECF1;
+  --color-brand-porcelain: #F7F9FB;
+  --color-brand-accent: #FF7A59;
+  --color-brand-mint: #27C2A0;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,.06), 0 8px 20px rgba(14,94,120,.08);
+  --radius-card: 16px;
+  --ring-brand: 0 0 0 3px rgba(39,194,160,.25);
+}
+
+/* Base page colors */
+html, body {
+  background: var(--color-brand-porcelain);
+  color: var(--color-brand-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------- Reusable helpers (keep CSS variables in plain CSS) -------- */
+
+.input {
+  @apply w-full rounded-xl bg-white/80 border px-4 py-3 outline-none transition;
+  border-color: rgba(0,0,0,.05);
+}
+.input:focus {
+  box-shadow: var(--ring-brand);
+  border-color: var(--color-brand-harbor);
+  background-color: rgba(255,255,255,.9);
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-3 font-medium text-white shadow-md hover:opacity-90 active:opacity-100;
+  background: var(--color-brand-harbor);
+}
+
+.btn-ghost {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-3 font-medium border;
+  color: var(--color-brand-ink);
+  background: #fff;
+  border-color: rgba(0,0,0,.05);
+}
+.btn-ghost:hover { background: var(--color-brand-porcelain); }
+
+.glass {
+  @apply backdrop-blur-md border;
+  background: rgba(255,255,255,.55);
+  border-color: rgba(255,255,255,.4);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
+}
+
+.card {
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
