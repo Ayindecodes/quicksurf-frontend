@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load stored tokens & fetch profile on mount
   useEffect(() => {
-    const access = localStorage.getItem("access");
+    const access = localStorage.getItem("access") || localStorage.getItem("qs_access");
     if (access) {
       fetchUser();
     } else {
@@ -36,8 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Fetch logged-in user data
   const fetchUser = async () => {
     try {
-      const res = await api.get("/users/dashboard/");
-      setUser(res.data);
+      const me = await api.get<User>("/users/dashboard/");
+      setUser(me);
     } catch (err) {
       console.error(err);
       logout();
@@ -49,9 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login
   const login = async (email: string, password: string) => {
     try {
-      const res = await api.post("/users/login/", { email, password });
-      localStorage.setItem("access", res.data.access);
-      localStorage.setItem("refresh", res.data.refresh);
+      const resp = await api.post<{ access: string; refresh: string }>(
+        "/users/login/",
+        { email, password }
+      );
+      // Keep your existing keys...
+      localStorage.setItem("access", resp.access);
+      localStorage.setItem("refresh", resp.refresh);
+      // ...and also set keys the api helper reads (qs_*) so authFetch adds Authorization
+      localStorage.setItem("qs_access", resp.access);
+      localStorage.setItem("qs_refresh", resp.refresh);
+
       toast.success("Login successful");
       await fetchUser();
     } catch {
@@ -71,8 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Logout
   const logout = () => {
+    // Clear both sets of keys to stay consistent
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    localStorage.removeItem("qs_access");
+    localStorage.removeItem("qs_refresh");
     setUser(null);
     toast("Logged out");
   };

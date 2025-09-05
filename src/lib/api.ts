@@ -1,4 +1,7 @@
-// src/lib/auth.ts
+// src/lib/api.ts
+// Safe, minimal types; default export provided; no reserved-word keys.
+
+// ===== Config =====
 export const API_ROOT =
   (process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") ||
     "http://localhost:8000") as string;
@@ -6,7 +9,7 @@ export const API_ROOT =
 const ACCESS_KEY = "qs_access";
 const REFRESH_KEY = "qs_refresh";
 
-/** Prefer the store that currently holds the refresh token */
+// Prefer the store that currently holds the refresh token
 function refreshStoredInLocal(): boolean {
   try {
     if (typeof window === "undefined") return true;
@@ -43,13 +46,13 @@ export function clearTokens() {
   } catch {}
 }
 
+// Refresh access token once on 401
 async function refreshAccess(): Promise<string> {
   const { refresh } = readTokens();
   if (!refresh) throw new Error("No refresh token");
   const res = await fetch(`${API_ROOT}/api/token/refresh/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // no cookies; pure JWT
     body: JSON.stringify({ refresh }),
   });
   if (!res.ok) throw new Error("Refresh failed");
@@ -57,14 +60,14 @@ async function refreshAccess(): Promise<string> {
   const access = data?.access as string | undefined;
   if (!access) throw new Error("No access in refresh response");
 
-  // Mirror where the refresh token currently lives
   const remember = refreshStoredInLocal();
   saveTokens(access, undefined, remember);
   return access;
 }
 
-/** Prefix relative paths with API_ROOT */
-function toUrl(input: RequestInfo | URL): RequestInfo | URL {
+// Prefix relative paths with API_ROOT
+type FetchInput = string | URL;
+function toUrl(input: FetchInput): FetchInput {
   if (typeof input === "string" && input.startsWith("/")) {
     return `${API_ROOT}${input}`;
   }
@@ -76,7 +79,7 @@ function toUrl(input: RequestInfo | URL): RequestInfo | URL {
  * Client-side only usage recommended.
  */
 export async function authFetch(
-  input: RequestInfo | URL,
+  input: FetchInput,
   init: RequestInit = {}
 ): Promise<Response> {
   const attempt = async (overrideAccess?: string) => {
@@ -85,7 +88,7 @@ export async function authFetch(
     const headers = new Headers(init.headers || {});
     if (token) headers.set("Authorization", `Bearer ${token}`);
     // do NOT send cookies
-    return fetch(toUrl(input), { ...init, headers });
+    return fetch(toUrl(input) as RequestInfo, { ...init, headers });
   };
 
   let res = await attempt();
@@ -108,4 +111,71 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
   return h;
 }
 
+// JSON helpers (non-breaking, optional to use)
+async function jsonFetch<T = unknown>(
+  url: string,
+  init: RequestInit = {}
+): Promise<T> {
+  const headers = new Headers(init.headers || {});
+  if (!headers.has("Content-Type") && init.method && init.method !== "GET") {
+    headers.set("Content-Type", "application/json");
+  }
+  const res = await authFetch(url, { ...init, headers });
+  if (!res.ok) {
+    let errBody: any = null;
+    try {
+      errBody = await res.json();
+    } catch {}
+    const e = new Error(
+      `HTTP ${res.status} ${res.statusText}${
+        errBody ? ` – ${JSON.stringify(errBody)}` : ""
+      }`
+    );
+    // @ts-ignore attach extra context
+    (e as any).status = res.status;
+    // @ts-ignore attach body
+    (e as any).body = errBody;
+    throw e;
+  }
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return undefined as T;
+  }
+}
 
+function get<T = unknown>(url: string, init?: RequestInit) {
+  return jsonFetch<T>(url, { ...init, method: "GET" });
+}
+function post<T = unknown>(url: string, body?: unknown, init?: RequestInit) {
+  return jsonFetch<T>(url, {
+    ...init,
+    method: "POST",
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+function put<T = unknown>(url: string, body?: unknown, init?: RequestInit) {
+  return jsonFetch<T>(url, {
+    ...init,
+    method: "PUT",
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+function del<T = unknown>(url: string, init?: RequestInit) {
+  return jsonFetch<T>(url, { ...init, method: "DELETE" });
+}
+
+// Default export: safe name "del" (not reserved) on the object
+const api = {
+  API_ROOT,
+  authFetch,
+  getAuthHeaders,
+  saveTokens,
+  clearTokens,
+  get,
+  post,
+  put,
+  del,
+};
+
+export default api;

@@ -1,10 +1,7 @@
 // next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
-  // 👇 tell Next.js to look inside src/
+  // Removed experimental.appDir (deprecated in Next.js 15)
   eslint: { ignoreDuringBuilds: true },
 };
 
