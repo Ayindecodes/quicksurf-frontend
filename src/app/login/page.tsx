@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   EnvelopeIcon,
@@ -19,7 +19,11 @@ const API_ROOT =
 
 type Json = Record<string, any> | null;
 
-export default function LoginPage() {
+/**
+ * Inner client component that reads search params.
+ * Next.js requires hooks like useSearchParams() to be wrapped in Suspense.
+ */
+function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -50,7 +54,10 @@ export default function LoginPage() {
 
   function setLoginCookie() {
     try {
-      const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : "";
+      const secure =
+        typeof window !== "undefined" && window.location.protocol === "https:"
+          ? "; secure"
+          : "";
       // 4 hours (14400s) to match your preferred access token window
       document.cookie = `qs_logged_in=1; path=/; max-age=14400; samesite=lax${secure}`;
     } catch {}
@@ -317,4 +324,14 @@ export default function LoginPage() {
   );
 }
 
-
+/**
+ * Page component that wraps LoginInner with Suspense, as required by Next.js
+ * when using useSearchParams() in the App Router.
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
