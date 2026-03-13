@@ -4,7 +4,7 @@
 // ===== Config =====
 export const API_ROOT =
   (process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") ||
-    "http://localhost:8000") as string;
+    "https://quicksurf.onrender.com") as string;
 
 const ACCESS_KEY = "qs_access";
 const REFRESH_KEY = "qs_refresh";
