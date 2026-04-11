@@ -2,14 +2,17 @@
 
 // --- Config ----------------------------------------------------
 /**
- * Set NEXT_PUBLIC_API_BASE to your API root, e.g.:
+ * Set NEXT_PUBLIC_API_BASE to your backend origin, with or without `/api`:
+ *   https://quicksurf.onrender.com
  *   https://quicksurf.onrender.com/api
- * Defaults to http://localhost:8000/api in dev.
+ * Defaults to http://localhost:8000 in dev.
  */
-export const API_ROOT: string = (
-  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") ||
-  "http://localhost:8000/api"
+const RAW_API_BASE: string = (
+  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") || "http://localhost:8000"
 ) as string;
+
+export const API_BASE: string = RAW_API_BASE.replace(/\/api$/i, "");
+export const API_ROOT: string = `${API_BASE}/api`;
 
 const isBrowser = typeof window !== "undefined";
 
@@ -101,7 +104,11 @@ function joinUrl(base: string, path: string) {
 /** Prefix relative paths with API_ROOT; leave absolute URLs intact. */
 function toUrl(input: RequestInfo | URL): RequestInfo | URL {
   if (typeof input === "string") {
-    return isAbsoluteUrl(input) ? input : joinUrl(API_ROOT, input);
+    if (isAbsoluteUrl(input)) return input;
+    // Accept legacy "/api/..." callers without generating "/api/api/...".
+    const withoutApiPrefix = input.replace(/^\/api(?=\/|$)/i, "");
+    const normalized = withoutApiPrefix || "/";
+    return joinUrl(API_ROOT, normalized);
   }
   return input;
 }
@@ -197,5 +204,4 @@ export async function authFetchJSON<T = any>(
   if (res.status === 204) return undefined;
   return (await res.json()) as T;
 }
-
 

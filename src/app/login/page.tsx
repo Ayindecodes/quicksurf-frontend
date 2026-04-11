@@ -11,11 +11,7 @@ import {
   ShieldCheckIcon,
   KeyIcon,
 } from "@heroicons/react/24/outline";
-
-/** Base URL for your Django backend */
-const API_ROOT =
-  (process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") ||
-    "http://localhost:8000") as string;
+import { API_ROOT } from "@/lib/auth";
 
 type Json = Record<string, any> | null;
 
@@ -73,10 +69,10 @@ function LoginInner() {
 
   async function loginViaCustom(): Promise<Json | null> {
     // Your custom users/login endpoint (returns {access, refresh})
-    const res = await fetch(`${API_ROOT}/api/users/login/`, {
+    const res = await fetch(`${API_ROOT}/users/login/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      credentials: "omit",
       body: JSON.stringify({
         email: email.trim(),
         password: pw,
@@ -97,13 +93,14 @@ function LoginInner() {
   }
 
   async function loginViaSimpleJWT(): Promise<Json> {
-    // Django SimpleJWT default: POST /api/token/ with {username, password}
+    // Django SimpleJWT default: POST /token/ with {username, password}
     // (even if USERNAME_FIELD is email)
-    const res = await fetch(`${API_ROOT}/api/token/`, {
+    const res = await fetch(`${API_ROOT}/token/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      credentials: "omit",
       body: JSON.stringify({
+        email: email.trim(),
         username: email.trim(),
         password: pw,
       }),

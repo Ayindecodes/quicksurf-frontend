@@ -31,7 +31,7 @@ import {
   QuestionMarkCircleIcon,
   NewspaperIcon,
 } from "@heroicons/react/24/outline";
-import { API_ROOT, authFetch, getAccessToken } from "@/lib/auth";
+import { authFetch, getAccessToken } from "@/lib/auth";
 
 /* ----------------------------- Types & helpers ---------------------------- */
 
@@ -350,10 +350,10 @@ function pickFirstWalletShape(data: any): any | null {
 
 async function fetchWalletOrFallback(): Promise<Wallet> {
   const tryUrls = [
-    `${API_ROOT}/wallet/`,
-    `${API_ROOT}/wallets/me/`,
-    `${API_ROOT}/wallets/`,
-    `${API_ROOT}/users/dashboard/`,
+    "/wallet/",
+    "/wallets/me/",
+    "/wallets/",
+    "/users/dashboard/",
   ];
   for (const url of tryUrls) {
     const res = await authFetch(url);
@@ -389,11 +389,14 @@ async function postAirtimeSmart(payload: {
   amount: number;
   client_reference: string;
 }) {
-  const base = API_ROOT.replace(/\/+$/, "");
   let lastErr: string | null = null;
 
   for (const path of AIRTIME_PATHS) {
-    const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+    const url = /^https?:\/\//i.test(path)
+      ? path
+      : path.startsWith("/")
+      ? path
+      : `/${path}`;
     const res = await authFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

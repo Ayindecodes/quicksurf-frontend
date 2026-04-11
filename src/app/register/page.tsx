@@ -11,6 +11,7 @@ import {
   EyeSlashIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
+import { API_ROOT } from "@/lib/auth";
 
 type Checks = {
   length: boolean;
@@ -19,10 +20,6 @@ type Checks = {
   number: boolean;
   symbol: boolean;
 };
-
-const API_ROOT =
-  (process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") ||
-    "http://localhost:8000") as string;
 
 function calcStrength(pw: string): { score: number; checks: Checks } {
   const checks: Checks = {
@@ -91,10 +88,10 @@ export default function RegisterPage() {
         last_name,
       };
 
-      const res = await fetch(`${API_ROOT}/api/users/register/`, {
+      const res = await fetch(`${API_ROOT}/users/register/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        credentials: "omit",
         body: JSON.stringify(body),
       });
 
@@ -348,8 +345,6 @@ export default function RegisterPage() {
     </main>
   );
 }
-
-
 
 
 

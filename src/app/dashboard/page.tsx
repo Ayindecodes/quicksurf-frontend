@@ -39,7 +39,7 @@ import {
   CreditCardIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { API_ROOT, authFetch, getAccessToken } from "@/lib/auth";
+import { authFetch, getAccessToken } from "@/lib/auth";
 
 /* -------------------------------------------------------
    Types
@@ -634,7 +634,7 @@ function pickFirstWalletShape(data: any): any | null {
   return data;
 }
 async function fetchWalletOrFallback(): Promise<Wallet> {
-  const tryUrls = [`${API_ROOT}/wallet/`, `${API_ROOT}/wallets/me/`, `${API_ROOT}/wallets/`, `${API_ROOT}/users/dashboard/`];
+  const tryUrls = ["/wallet/", "/wallets/me/", "/wallets/", "/users/dashboard/"];
   for (const url of tryUrls) {
     const res = await authFetch(url);
     if (res.status === 401) throw new Error("401");
@@ -653,14 +653,14 @@ type Paginated<T> = { count: number; next: string | null; previous: string | nul
 type AirtimeRow = { id: string | number; network: "mtn" | "glo" | "airtel" | "9mobile"; phone: string; amount: string | number; status: string; client_reference: string; timestamp: string; };
 type DataRow = AirtimeRow & { plan: string };
 async function fetchAirtime(): Promise<Tx[]> {
-  const res = await authFetch(`${API_ROOT}/services/airtime/?page_size=10`);
+  const res = await authFetch("/services/airtime/?page_size=10");
   if (res.status === 401) throw new Error("401");
   if (!res.ok) return [];
   const data: Paginated<AirtimeRow> = await res.json();
   return (data.results || []).map((r) => ({ id: String(r.id), created_at: r.timestamp, kind: "airtime", network: r.network, phone: r.phone, amount: asNumber(r.amount), status: mapStatus(r.status), provider_ref: r.client_reference }));
 }
 async function fetchDataTx(): Promise<Tx[]> {
-  const res = await authFetch(`${API_ROOT}/services/data/?page_size=10`);
+  const res = await authFetch("/services/data/?page_size=10");
   if (res.status === 401) throw new Error("401");
   if (!res.ok) return [];
   const data: Paginated<DataRow> = await res.json();

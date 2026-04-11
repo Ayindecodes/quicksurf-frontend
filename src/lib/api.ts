@@ -2,9 +2,12 @@
 // Safe, minimal types; default export provided; no reserved-word keys.
 
 // ===== Config =====
-export const API_ROOT =
+const RAW_API_BASE =
   (process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") ||
-    "https://quicksurf.onrender.com") as string;
+    "http://localhost:8000") as string;
+
+export const API_BASE = RAW_API_BASE.replace(/\/api$/i, "");
+export const API_ROOT = `${API_BASE}/api`;
 
 const ACCESS_KEY = "qs_access";
 const REFRESH_KEY = "qs_refresh";
@@ -50,7 +53,7 @@ export function clearTokens() {
 async function refreshAccess(): Promise<string> {
   const { refresh } = readTokens();
   if (!refresh) throw new Error("No refresh token");
-  const res = await fetch(`${API_ROOT}/api/token/refresh/`, {
+  const res = await fetch(`${API_ROOT}/token/refresh/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh }),
@@ -69,7 +72,9 @@ async function refreshAccess(): Promise<string> {
 type FetchInput = string | URL;
 function toUrl(input: FetchInput): FetchInput {
   if (typeof input === "string" && input.startsWith("/")) {
-    return `${API_ROOT}${input}`;
+    // Accept legacy "/api/..." callers without generating "/api/api/...".
+    const withoutApiPrefix = input.replace(/^\/api(?=\/|$)/i, "");
+    return `${API_ROOT}${withoutApiPrefix || "/"}`;
   }
   return input;
 }
