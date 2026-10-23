@@ -1,103 +1,133 @@
 "use client";
+// src/context/AuthContext.tsx
+// Who is signed in. The profile is loaded from /users/me/ whenever tokens are present.
 
-import { createContext, useState, useEffect, useContext, ReactNode } from "react";
-import api from "@/lib/api";
-import { toast } from "react-hot-toast";
+import { usePathname, useRouter } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-interface User {
-  id: number;
-  email: string;
-}
+import { ApiError, SESSION_EXPIRED_EVENT } from "@/lib/api";
+import { account, auth } from "@/lib/endpoints";
+import { clearTokens, readTokens, REFRESH_KEY, saveTokens } from "@/lib/tokens";
+import type { Profile } from "@/lib/types";
 
-interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+// "left": the user signed out or closed the account here, and is already being sent somewhere.
+type Status = "loading" | "signed-in" | "signed-out" | "left";
+
+type AuthContextValue = {
+  status: Status;
+  user: Profile | null;
+  signIn: (email: string, password: string, remember: boolean) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  loading: boolean;
-}
+  signOut: (options?: { everywhere?: boolean }) => Promise<void>;
+  /** Forget the session locally (the server already ended it, e.g. the account was closed). */
+  forget: () => void;
+  /** Reload the profile (after verifying the email, setting a PIN, editing details...). */
+  reload: () => Promise<void>;
+  setUser: (user: Profile) => void;
+};
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [status, setStatus] = useState<Status>("loading");
+  const [user, setUserState] = useState<Profile | null>(null);
 
-  // Load stored tokens & fetch profile on mount
-  useEffect(() => {
-    const access = localStorage.getItem("access") || localStorage.getItem("qs_access");
-    if (access) {
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
+  const setUser = useCallback((profile: Profile) => {
+    setUserState(profile);
+    setStatus("signed-in");
   }, []);
 
-  // Fetch logged-in user data
-  const fetchUser = async () => {
+  const signedOut = useCallback((left = false) => {
+    setUserState(null);
+    setStatus(left ? "left" : "signed-out");
+  }, []);
+
+  const reload = useCallback(async () => {
+    if (!readTokens()) return signedOut();
     try {
-      const me = await api.get<User>("/users/dashboard/");
-      setUser(me);
-    } catch (err) {
-      console.error(err);
-      logout();
-    } finally {
-      setLoading(false);
+      setUser(await account.me());
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) signedOut();
+      else throw error;
     }
-  };
+  }, [setUser, signedOut]);
 
-  // Login
-  const login = async (email: string, password: string) => {
-    try {
-      const resp = await api.post<{ access: string; refresh: string }>(
-        "/users/login/",
-        { email, password }
-      );
-      // Keep your existing keys...
-      localStorage.setItem("access", resp.access);
-      localStorage.setItem("refresh", resp.refresh);
-      // ...and also set keys the api helper reads (qs_*) so authFetch adds Authorization
-      localStorage.setItem("qs_access", resp.access);
-      localStorage.setItem("qs_refresh", resp.refresh);
+  // Tokens live in browser storage, so the session is only known after mounting. The load is queued
+  // as a microtask rather than run inside the effect, so the first render isn't immediately redone.
+  useEffect(() => {
+    Promise.resolve()
+      .then(reload)
+      .catch(() => {
+        // Network trouble on load: keep the tokens and let each page show its own error.
+        if (readTokens()) setStatus("signed-in");
+      });
+  }, [reload]);
 
-      toast.success("Login successful");
-      await fetchUser();
-    } catch {
-      toast.error("Invalid credentials");
-    }
-  };
+  // Signed out in another tab, or the session ran out: go to sign-in.
+  useEffect(() => {
+    const expired = () => {
+      signedOut(true);
+      if (pathname.startsWith("/dashboard")) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    };
+    const onStorage = (event: StorageEvent) => {
+      if ((event.key === REFRESH_KEY || event.key === null) && !readTokens()) expired();
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, expired);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, expired);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [pathname, router, signedOut]);
 
-  // Register
-  const register = async (email: string, password: string) => {
-    try {
-      await api.post("/users/register/", { email, password });
-      toast.success("Registration successful! Please log in.");
-    } catch {
-      toast.error("Registration failed");
-    }
-  };
-
-  // Logout
-  const logout = () => {
-    // Clear both sets of keys to stay consistent
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("qs_access");
-    localStorage.removeItem("qs_refresh");
-    setUser(null);
-    toast("Logged out");
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
+  const signIn = useCallback(
+    async (email: string, password: string, remember: boolean) => {
+      saveTokens(await auth.login(email, password), remember);
+      await reload();
+    },
+    [reload],
   );
+
+  const register = useCallback(
+    async (email: string, password: string) => {
+      const { access, refresh } = await auth.register(email, password);
+      saveTokens({ access, refresh }, true);
+      await reload();
+    },
+    [reload],
+  );
+
+  const signOut = useCallback(
+    async ({ everywhere = false } = {}) => {
+      const tokens = readTokens();
+      try {
+        if (tokens) await auth.logout(tokens.refresh, everywhere);
+      } catch {
+        // Signing out locally still works if the server can't be reached.
+      }
+      clearTokens();
+      signedOut(true);
+      router.replace("/login");
+    },
+    [router, signedOut],
+  );
+
+  const forget = useCallback(() => {
+    clearTokens();
+    signedOut(true);
+  }, [signedOut]);
+
+  const value = useMemo(
+    () => ({ status, user, signIn, register, signOut, forget, reload, setUser }),
+    [status, user, signIn, register, signOut, forget, reload, setUser],
+  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Hook to use Auth context
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+export function useAuth(): AuthContextValue {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error("useAuth must be used inside <AuthProvider>");
+  return value;
 }
