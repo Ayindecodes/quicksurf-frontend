@@ -63,7 +63,7 @@ export function RewardsView() {
   return (
     <>
       <PageHeader title="Rewards" description="Earn points on every successful purchase and turn them into wallet money." />
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
           <Gift className="h-6 w-6 text-brand-accent" aria-hidden="true" />
           <p className="mt-3 text-4xl font-bold">{data.points.toLocaleString("en-NG")}</p>

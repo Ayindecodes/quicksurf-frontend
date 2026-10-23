@@ -74,7 +74,7 @@ export default function LandingPage() {
           </div>
 
           <div aria-hidden="true" className="relative mx-auto w-full max-w-sm">
-            <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-brand-harbor/10 blur-2xl" />
+            <div className="absolute -inset-y-6 -inset-x-2 -z-10 rounded-[2rem] bg-brand-harbor/10 blur-2xl sm:-inset-6" />
             <div className="rounded-3xl bg-brand-harbor p-6 text-white shadow-xl">
               <p className="text-sm text-white/75">Wallet balance</p>
               <p className="mt-1 text-3xl font-bold">₦12,450.00</p>

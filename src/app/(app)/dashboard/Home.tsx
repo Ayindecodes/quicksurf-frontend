@@ -80,7 +80,7 @@ export function Home() {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <Card className="md:col-span-2" aria-labelledby="recent">
           <div className="flex items-center justify-between">
             <h2 id="recent" className="font-semibold">

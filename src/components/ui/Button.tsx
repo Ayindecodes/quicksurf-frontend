@@ -15,7 +15,7 @@ const VARIANTS: Record<Variant, string> = {
 
 export function buttonClass(variant: Variant = "primary", className?: string): string {
   return cn(
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition [&_svg]:shrink-0",
     "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-mint/40",
     "disabled:cursor-not-allowed disabled:opacity-60",
     VARIANTS[variant],

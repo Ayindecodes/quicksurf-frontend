@@ -103,7 +103,7 @@ function ProfileSection({ user }: { user: Profile }) {
             )}
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField
             label="First name"
             autoComplete="given-name"
@@ -166,7 +166,7 @@ function PinSection({ hasPin }: { hasPin: boolean }) {
     >
       <form onSubmit={save} className="space-y-4" noValidate>
         {form.banner}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <PinField
             label={hasPin ? "New PIN" : "PIN"}
             value={pin}
@@ -289,7 +289,7 @@ function SavedNumbersSection() {
       )}
       <form onSubmit={add} className="space-y-4" noValidate>
         {form.banner}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField
             label="Name"
             placeholder="e.g. Mum"
