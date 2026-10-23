@@ -58,7 +58,14 @@ export function AccountView() {
   if (!user) return null;
   return (
     <>
-      <PageHeader title="Account" />
+      <PageHeader
+        title="Account"
+        actions={
+          <Link href="/support" className="text-sm font-medium text-brand-harbor hover:underline">
+            Help &amp; support
+          </Link>
+        }
+      />
       <div className="space-y-6">
         <ProfileSection user={user} />
         <PinSection hasPin={user.has_pin} />

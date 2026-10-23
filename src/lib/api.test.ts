@@ -127,3 +127,15 @@ describe("request", () => {
     await expect(request("/wallet/")).rejects.toMatchObject({ status: 0, code: "network_error" });
   });
 });
+
+describe("errorMessage", () => {
+  it("adds the request ID to server errors so support can find them", async () => {
+    const { errorMessage } = await import("./api");
+    const serverError = toApiError(500, envelope("server_error", "Something went wrong.", {}));
+    const refused = toApiError(400, envelope("insufficient_funds", "Insufficient funds."));
+
+    expect(errorMessage(serverError)).toBe("Something went wrong. If it keeps happening, contact support and quote req-123.");
+    expect(errorMessage(refused)).toBe("Insufficient funds.");
+    expect(errorMessage(new Error("boom"))).toBe("Something went wrong. Please try again.");
+  });
+});
