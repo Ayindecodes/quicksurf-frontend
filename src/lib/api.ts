@@ -3,6 +3,7 @@
 // backend's error envelope: {"error": {"code", "message", "fields"?, ...extra}, "request_id"}.
 
 import { API_ROOT } from "./config";
+import { deviceId } from "./device";
 import { clearTokens, readTokens, saveTokens } from "./tokens";
 
 export type FieldErrors = Record<string, string[]>;
@@ -93,6 +94,8 @@ async function send(path: string, options: RequestOptions, access?: string): Pro
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (access) headers.Authorization = `Bearer ${access}`;
+  const device = deviceId();
+  if (device) headers["X-Device-Id"] = device;
   try {
     return await fetch(`${API_ROOT}${path}`, {
       method: options.method ?? "GET",

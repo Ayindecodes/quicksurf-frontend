@@ -9,7 +9,8 @@ import { Card, PageHeader } from "@/components/ui/Card";
 import { cn } from "@/components/ui/cn";
 import { onlyDigits, TextField } from "@/components/ui/Field";
 import { ApiError, errorMessage } from "@/lib/api";
-import { topups } from "@/lib/endpoints";
+import { useApi } from "@/hooks/useApi";
+import { account, topups } from "@/lib/endpoints";
 import { naira } from "@/lib/format";
 
 const PRESETS = [1000, 2000, 5000, 10000];
@@ -22,6 +23,12 @@ export function Topup() {
   const [busy, setBusy] = useState(false);
   const value = Number(amount || 0);
   const tooSmall = amount !== "" && value < MINIMUM;
+  const me = useApi("topup-limits", account.me);
+  const limits = me.data?.limits;
+  const remainingToday =
+    limits && Number(limits.daily_topup_limit) > 0
+      ? Math.max(Number(limits.daily_topup_limit) - Number(limits.topped_up_today), 0)
+      : null;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -50,6 +57,22 @@ export function Topup() {
               </Link>{" "}
               and then come back to fund your wallet.
             </Alert>
+          ) : apiError?.code === "phone_unverified" ? (
+            <Alert tone="warning" title="Verify your phone number first">
+              <Link href="/dashboard/account#phone" className="font-semibold underline">
+                Confirm your number with a texted code
+              </Link>{" "}
+              and then come back to fund your wallet.
+            </Alert>
+          ) : apiError?.code === "daily_topup_limit" ? (
+            <Alert tone="warning" title="Daily top-up limit reached">
+              {apiError.message}{" "}
+              {apiError.extra.level === "basic" && (
+                <Link href="/dashboard/account#phone" className="font-semibold underline">
+                  Verify your phone number to raise it.
+                </Link>
+              )}
+            </Alert>
           ) : (
             error && <Alert tone="error">{apiError ? (apiError.field("amount") ?? apiError.message) : String(error)}</Alert>
           )}
@@ -76,6 +99,7 @@ export function Topup() {
             value={amount}
             onChange={(e) => setAmount(onlyDigits(e.target.value, 7))}
             error={tooSmall ? `The minimum top-up is ${naira(MINIMUM)}.` : undefined}
+            hint={remainingToday !== null ? `You can top up ${naira(remainingToday)} more today.` : undefined}
           />
           <Button type="submit" loading={busy} disabled={!value || tooSmall} className="w-full">
             {value >= MINIMUM ? `Pay ${naira(value)}` : "Continue to payment"}

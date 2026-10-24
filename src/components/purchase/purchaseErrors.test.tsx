@@ -23,6 +23,11 @@ describe("purchaseErrorMessage", () => {
     expect(screen.getByRole("link", { name: /set your pin/i })).toHaveAttribute("href", "/dashboard/account#pin");
   });
 
+  it("points basic accounts at phone verification when they hit the daily limit", () => {
+    show(new ApiError({ status: 400, code: "daily_limit", message: "Daily purchase limit of ₦10,000 reached.", extra: { level: "basic" } }));
+    expect(screen.getByRole("link", { name: /verify your phone/i })).toHaveAttribute("href", "/dashboard/account#phone");
+  });
+
   it("shows the first field error for validation problems", () => {
     show(new ApiError({ status: 400, code: "invalid", message: "Fix the fields.", fields: { phone: ["Enter a valid NG number."] } }));
     expect(screen.getByText("Enter a valid NG number.")).toBeInTheDocument();

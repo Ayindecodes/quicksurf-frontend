@@ -55,6 +55,7 @@ describe("request", () => {
     expect(url).toBe(`${API_ROOT}/wallet/`);
     expect(init.headers.Authorization).toBe("Bearer A1");
     expect(init.credentials).toBe("omit");
+    expect(init.headers["X-Device-Id"]).toBe(localStorage.getItem("qs_device"));
   });
 
   it("refreshes once on 401, stores the rotated refresh token, and retries", async () => {

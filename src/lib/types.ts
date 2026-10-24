@@ -5,14 +5,27 @@ export type Money = string;
 
 export type TokenPair = { access: string; refresh: string };
 
+export type VerificationLevel = "basic" | "verified";
+
+/** Today's limits for the account (0 means no limit). Usage counts Lagos days. */
+export type Limits = {
+  level: VerificationLevel;
+  daily_purchase_limit: Money;
+  daily_topup_limit: Money;
+  spent_today: Money;
+  topped_up_today: Money;
+};
+
 export type Profile = {
   id: number;
   email: string;
   first_name: string;
   last_name: string;
-  phone: string;
+  phone: string; // only set by confirming a texted code
   email_verified: boolean;
+  phone_verified: boolean;
   has_pin: boolean;
+  limits: Limits;
   date_joined: string;
 };
 
