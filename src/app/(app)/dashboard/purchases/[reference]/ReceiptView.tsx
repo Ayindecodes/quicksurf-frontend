@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Clock, Printer, RotateCcw, XCircle } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
@@ -108,6 +109,12 @@ export function ReceiptView({ reference }: { reference: string }) {
           </Button>
         )}
       </div>
+      <p className="no-print mt-4 text-center text-sm text-brand-ink/70">
+        Problem with this purchase?{" "}
+        <Link href={`/support?ref=${encodeURIComponent(data.reference)}`} className="font-medium text-brand-harbor underline">
+          Get help
+        </Link>
+      </p>
     </Card>
   );
 }

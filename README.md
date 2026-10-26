@@ -36,6 +36,7 @@ CI (`.github/workflows/ci.yml`) runs all four plus `npm audit` on every pull req
 | `src/lib/tokens.ts` | Where tokens are kept: `localStorage` for "Keep me signed in", otherwise `sessionStorage` |
 | `src/context/AuthContext.tsx` | The signed-in user, sign-in/out, and what happens when a session ends in another tab |
 | `src/proxy.ts` | Content-Security-Policy with a per-request nonce |
+| `src/app/(site)/` | Landing page, Terms, Privacy, Refund Policy, Help & support |
 | `src/app/(app)/(auth)/` | Log in, sign up, password reset |
 | `src/app/(app)/dashboard/` | Home, top-up and its Paystack return page, airtime, data, receipts, history, rewards, account |
 | `src/components/ui/` | Buttons, fields, dialogs, badges |
@@ -53,6 +54,22 @@ How the risky parts work:
   `/dashboard/topup/callback`. That page checks the payment until it is confirmed.
 - **XSS protection.** Tokens live in browser storage, so injected scripts are what we must stop. The CSP allows
   only scripts carrying the request's nonce (`'strict-dynamic'`), so every page is rendered per request.
+
+## Legal and support pages
+
+`/terms`, `/privacy` (written for the Nigeria Data Protection Act 2023), `/refunds` and `/support` describe what
+the system actually does: when money is held, refunded or reversed, what is stored and for how long. The
+business details they need live in `src/content/business.ts`:
+- company name, registration and address;
+- support contacts and hours;
+- response times;
+- the wallet refund policy.
+
+```bash
+npm run launch-check   # fails while any business detail is a placeholder or the legal review isn't done
+```
+
+Run it before going live. The pages are drafts until a lawyer has reviewed them (`legalReviewed: true`).
 
 ## Deploying (Vercel)
 

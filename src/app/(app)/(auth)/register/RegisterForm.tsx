@@ -59,6 +59,17 @@ export function RegisterForm() {
           error={fieldError("password")}
           hint="At least 8 characters. Avoid common passwords and anything like your email."
         />
+        <p className="text-xs text-brand-ink/60">
+          By creating an account you agree to our{" "}
+          <Link href="/terms" className="font-medium text-brand-harbor underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="font-medium text-brand-harbor underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
         <Button type="submit" loading={busy} disabled={!email || !password} className="w-full">
           Create account
         </Button>

@@ -35,3 +35,13 @@ jobs:
           NEXT_PUBLIC_API_BASE: https://api.example.com
       - name: Dependency audit
         run: npm audit --omit=dev --audit-level=high
+
+  # Merging main deploys to production: the legal and support pages must have real business details
+  # and a completed legal review first (src/content/business.ts).
+  launch-ready:
+    if: github.base_ref == 'main' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/launch-check.mjs

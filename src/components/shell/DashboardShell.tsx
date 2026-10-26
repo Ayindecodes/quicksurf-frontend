@@ -1,6 +1,6 @@
 "use client";
 
-import { Gift, House, LogOut, ReceiptText, Smartphone, UserRound, Wifi } from "lucide-react";
+import { Gift, House, LifeBuoy, LogOut, ReceiptText, Smartphone, UserRound, Wifi } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
@@ -80,6 +80,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           <p className="truncate text-sm font-medium" title={user?.email}>
             {user?.email}
           </p>
+          <Link
+            href="/support"
+            className="mt-2 flex items-center gap-2 rounded-lg text-sm text-brand-ink/70 hover:text-brand-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-mint/40"
+          >
+            <LifeBuoy className="h-4 w-4" aria-hidden="true" /> Help &amp; support
+          </Link>
           <button
             type="button"
             onClick={() => signOut()}

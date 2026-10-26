@@ -169,6 +169,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
 /** A message to show for any error thrown by the API client (or anything else). */
 export function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  return "Something went wrong. Please try again.";
+  if (!(error instanceof ApiError)) return "Something went wrong. Please try again.";
+  if (error.status >= 500 && error.requestId) {
+    return `${error.message} If it keeps happening, contact support and quote ${error.requestId}.`;
+  }
+  return error.message;
 }
