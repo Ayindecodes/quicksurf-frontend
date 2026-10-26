@@ -27,6 +27,18 @@ export function purchaseErrorMessage(error: unknown): ReactNode {
           </Link>
         </>
       );
+    case "daily_limit":
+      return error.extra.level === "basic" ? (
+        <>
+          {error.message}{" "}
+          <Link href="/dashboard/account#phone" className="font-semibold underline">
+            Verify your phone number
+          </Link>{" "}
+          to raise your daily limit.
+        </>
+      ) : (
+        error.message
+      );
     case "insufficient_funds":
       return (
         <>

@@ -14,10 +14,10 @@ import { onlyDigits, PinField, TextField } from "@/components/ui/Field";
 import { NetworkPicker } from "@/components/ui/NetworkPicker";
 import { PasswordField } from "@/components/ui/PasswordField";
 import { useAuth } from "@/context/AuthContext";
-import { useApi } from "@/hooks/useApi";
+import { useApi, useInterval } from "@/hooks/useApi";
 import { ApiError, errorMessage } from "@/lib/api";
 import { account, savedNumbers } from "@/lib/endpoints";
-import { NETWORK_NAMES, normalizePhone } from "@/lib/format";
+import { NETWORK_NAMES, naira, normalizePhone } from "@/lib/format";
 import { saveTokens } from "@/lib/tokens";
 import type { Network, Profile } from "@/lib/types";
 
@@ -68,6 +68,8 @@ export function AccountView() {
       />
       <div className="space-y-6">
         <ProfileSection user={user} />
+        <PhoneSection user={user} />
+        <LimitsSection user={user} />
         <PinSection hasPin={user.has_pin} />
         <PasswordSection />
         <SavedNumbersSection />
@@ -81,7 +83,7 @@ export function AccountView() {
 function ProfileSection({ user }: { user: Profile }) {
   const { setUser } = useAuth();
   const form = useForm();
-  const [values, setValues] = useState({ first_name: user.first_name, last_name: user.last_name, phone: user.phone });
+  const [values, setValues] = useState({ first_name: user.first_name, last_name: user.last_name });
 
   const save = (event: FormEvent) => {
     event.preventDefault();
@@ -128,19 +130,159 @@ function ProfileSection({ user }: { user: Profile }) {
             error={form.field("last_name")}
           />
         </div>
-        <TextField
-          label="Your phone number"
-          type="tel"
-          autoComplete="tel-national"
-          placeholder="0803 123 4567"
-          value={values.phone}
-          onChange={(e) => setValues({ ...values, phone: e.target.value })}
-          error={form.field("phone")}
-        />
         <Button type="submit" loading={form.busy}>
           Save profile
         </Button>
       </form>
+    </Section>
+  );
+}
+
+function PhoneSection({ user }: { user: Profile }) {
+  const { setUser } = useAuth();
+  const form = useForm();
+  const [changing, setChanging] = useState(!user.phone_verified);
+  const [phone, setPhone] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [wait, setWait] = useState(0);
+  useInterval(() => setWait((s) => Math.max(0, s - 1)), 1000, wait > 0);
+
+  const send = (event?: FormEvent) => {
+    event?.preventDefault();
+    return form.run(async () => {
+      const { phone: normalized, detail } = await account.sendPhoneCode(sentTo ?? phone);
+      setSentTo(normalized);
+      setWait(60);
+      toast.success(detail);
+    });
+  };
+
+  const confirm = (event: FormEvent) => {
+    event.preventDefault();
+    return form.run(async () => {
+      setUser(await account.confirmPhone(code));
+      setSentTo(null);
+      setCode("");
+      setPhone("");
+      setChanging(false);
+      toast.success("Phone number verified");
+    });
+  };
+
+  return (
+    <Section
+      id="phone"
+      title="Phone number"
+      description="We text you a code to confirm it. It protects your account and raises your daily limits. A number can be verified on one account only."
+    >
+      {!changing && user.phone_verified ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="flex items-center gap-2 text-sm">
+            <span className="font-medium">{user.phone}</span>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+              <BadgeCheck className="h-4 w-4" aria-hidden="true" /> Verified
+            </span>
+          </p>
+          <Button variant="secondary" onClick={() => setChanging(true)}>
+            Use a different number
+          </Button>
+        </div>
+      ) : sentTo === null ? (
+        <form onSubmit={send} className="space-y-4" noValidate>
+          {form.banner}
+          <TextField
+            label="Your phone number"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel-national"
+            placeholder="0803 123 4567"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            error={form.field("phone")}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" loading={form.busy} disabled={!normalizePhone(phone)}>
+              Text me a code
+            </Button>
+            {user.phone_verified && (
+              <Button variant="ghost" onClick={() => setChanging(false)}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={confirm} className="space-y-4" noValidate>
+          <p className="text-sm text-brand-ink/75">
+            Enter the 6-digit code we texted to <strong>{sentTo}</strong>. It expires in 15 minutes.
+          </p>
+          {form.banner}
+          <TextField
+            label="6-digit code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(onlyDigits(e.target.value, 6))}
+            error={form.field("code")}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" loading={form.busy} disabled={code.length !== 6}>
+              Verify number
+            </Button>
+            <Button variant="ghost" onClick={() => send()} disabled={wait > 0 || form.busy}>
+              {wait > 0 ? `Resend in ${wait}s` : "Resend code"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSentTo(null);
+                setCode("");
+              }}
+            >
+              Change number
+            </Button>
+          </div>
+        </form>
+      )}
+    </Section>
+  );
+}
+
+function LimitsSection({ user }: { user: Profile }) {
+  const fresh = useApi("limits", account.me); // usage changes as the user buys, so load it again here
+  const limits = fresh.data?.limits ?? user.limits;
+  const basic = limits.level === "basic";
+  const row = (label: string, used: string, limit: string) => (
+    <div className="flex justify-between gap-4 py-2.5 text-sm">
+      <dt className="text-brand-ink/70">{label}</dt>
+      <dd className="text-right font-medium">
+        {Number(limit) > 0 ? `${naira(used)} of ${naira(limit)}` : `${naira(used)} (no limit)`}
+      </dd>
+    </div>
+  );
+  return (
+    <Section title="Your daily limits" description="They reset at midnight, Lagos time.">
+      <p className="text-sm">
+        Account level:{" "}
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${basic ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}
+        >
+          {basic ? "Basic" : "Verified"}
+        </span>
+      </p>
+      <dl className="mt-3 divide-y divide-black/5 border-y border-black/5">
+        {row("Purchases today", limits.spent_today, limits.daily_purchase_limit)}
+        {row("Top-ups today", limits.topped_up_today, limits.daily_topup_limit)}
+      </dl>
+      {basic && (
+        <p className="mt-3 text-sm text-brand-ink/70">
+          <a href="#phone" className="font-medium text-brand-harbor underline">
+            Verify your phone number
+          </a>{" "}
+          to raise these limits.
+        </p>
+      )}
     </Section>
   );
 }

@@ -154,7 +154,17 @@ function SetupBanner() {
       </Link>
     );
   }
-  if (user.email_verified && !user.has_pin && pathname !== "/dashboard/account") {
+  if (!user.phone_verified && pathname !== "/dashboard/account") {
+    return (
+      <Link
+        href="/dashboard/account#phone"
+        className="mb-6 block rounded-xl border border-sky-200 bg-sky-50 p-3.5 text-sm text-sky-900 hover:bg-sky-100"
+      >
+        <strong>Verify your phone number</strong>. It protects your account and raises your daily limits. →
+      </Link>
+    );
+  }
+  if (!user.has_pin && pathname !== "/dashboard/account") {
     return (
       <Link
         href="/dashboard/account#pin"

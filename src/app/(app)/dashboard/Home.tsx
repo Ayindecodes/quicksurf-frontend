@@ -20,7 +20,7 @@ export function Home() {
   const recent = useApi("recent", () => wallet.history({}, 1, 5));
   const points = useApi("rewards", rewards.get);
   const name = user?.first_name || user?.email.split("@")[0];
-  const setupDone = user?.email_verified && user?.has_pin;
+  const setupDone = user?.email_verified && user?.phone_verified && user?.has_pin;
 
   return (
     <div className="space-y-6">
@@ -69,6 +69,9 @@ export function Home() {
             </SetupStep>
             <SetupStep done={user.email_verified} href="/dashboard/verify-email">
               Confirm your email
+            </SetupStep>
+            <SetupStep done={user.phone_verified} href="/dashboard/account#phone">
+              Verify your phone number
             </SetupStep>
             <SetupStep done={user.has_pin} href="/dashboard/account#pin">
               Set your transaction PIN

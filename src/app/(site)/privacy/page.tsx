@@ -33,7 +33,14 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Security information:</strong> your transaction PIN (stored only as a secure hash), and when you
-          sign in, your IP address, browser or device details, and the time.
+          sign in, your IP address, browser or device details, the time, and a random ID the app keeps on your
+          device.
+        </li>
+        <li>
+          <strong>Verification and fraud prevention:</strong> your phone number, confirmed with a code we text
+          you; and for each top-up, a code from Paystack that identifies the card or bank account that paid (not
+          the card or account number). We use these to make sure each person has one account and to spot
+          stolen cards.
         </li>
         <li>
           <strong>Messages:</strong> emails we send you (codes and receipts) and anything you send our support team.
@@ -52,7 +59,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>To keep you and QuickSurf safe (legitimate interests and legal duties):</strong> preventing fraud
-          and misuse, securing accounts, and investigating problems.
+          and misuse, making sure each person has one account, securing accounts, and investigating problems.
         </li>
         <li>
           <strong>To meet the law (legal obligation):</strong> keeping financial records and answering lawful requests
@@ -66,6 +73,7 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>Paystack</strong>: processes your payments.</li>
         <li><strong>VTpass</strong>: delivers airtime and data. It receives the phone number, network and amount.</li>
+        <li><strong>Our SMS provider</strong> (Termii): sends your verification codes. It receives your phone number.</li>
         <li><strong>Hosting and email providers</strong> (such as Render and Vercel): run our servers, database and website, and send our emails.</li>
         <li><strong>Error monitoring</strong> (such as Sentry): if used, receives technical error details without your personal details.</li>
         <li><strong>Authorities</strong>: when the law requires it.</li>

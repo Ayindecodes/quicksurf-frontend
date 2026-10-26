@@ -60,8 +60,12 @@ export const auth = {
 
 export const account = {
   me: () => request<Profile>("/users/me/"),
-  update: (changes: Partial<Pick<Profile, "first_name" | "last_name" | "phone">>) =>
+  update: (changes: Partial<Pick<Profile, "first_name" | "last_name">>) =>
     request<Profile>("/users/me/", { method: "PATCH", body: changes }),
+  /** Text a 6-digit code to the number. */
+  sendPhoneCode: (phone: string) =>
+    request<Detail & { phone: string }>("/users/phone/request/", { method: "POST", body: { phone } }),
+  confirmPhone: (code: string) => request<Profile>("/users/phone/confirm/", { method: "POST", body: { code } }),
   changePassword: (current_password: string, new_password: string) =>
     request<TokenPair & Detail>("/users/me/password/", { method: "POST", body: { current_password, new_password } }),
   close: (password: string) => request<void>("/users/me/", { method: "DELETE", body: { password } }),
