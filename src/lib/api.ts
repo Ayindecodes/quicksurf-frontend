@@ -1,186 +1,174 @@
 // src/lib/api.ts
-// Safe, minimal types; default export provided; no reserved-word keys.
+// One client for the QuickSurf API (/api/v1). Errors are thrown as ApiError, built from the
+// backend's error envelope: {"error": {"code", "message", "fields"?, ...extra}, "request_id"}.
 
-// ===== Config =====
-const RAW_API_BASE =
-  (process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") ||
-    "http://localhost:8000") as string;
+import { API_ROOT } from "./config";
+import { clearTokens, readTokens, saveTokens } from "./tokens";
 
-export const API_BASE = RAW_API_BASE.replace(/\/api$/i, "");
-export const API_ROOT = `${API_BASE}/api`;
+export type FieldErrors = Record<string, string[]>;
 
-const ACCESS_KEY = "qs_access";
-const REFRESH_KEY = "qs_refresh";
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly fields: FieldErrors;
+  readonly extra: Record<string, unknown>;
+  readonly requestId: string | null;
 
-// Prefer the store that currently holds the refresh token
-function refreshStoredInLocal(): boolean {
-  try {
-    if (typeof window === "undefined") return true;
-    return !!localStorage.getItem(REFRESH_KEY);
-  } catch {
-    return true;
+  constructor(init: {
+    status: number;
+    code: string;
+    message: string;
+    fields?: FieldErrors;
+    extra?: Record<string, unknown>;
+    requestId?: string | null;
+  }) {
+    super(init.message);
+    this.name = "ApiError";
+    this.status = init.status;
+    this.code = init.code;
+    this.fields = init.fields ?? {};
+    this.extra = init.extra ?? {};
+    this.requestId = init.requestId ?? null;
+  }
+
+  /** The first message the server gave for a form field. */
+  field(name: string): string | undefined {
+    return this.fields[name]?.[0];
   }
 }
 
-function readTokens() {
-  if (typeof window === "undefined")
-    return { access: null as string | null, refresh: null as string | null };
-  const access =
-    localStorage.getItem(ACCESS_KEY) ?? sessionStorage.getItem(ACCESS_KEY);
-  const refresh =
-    localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY);
-  return { access, refresh };
-}
+export const SESSION_EXPIRED_EVENT = "qs:session-expired";
+const NETWORK_MESSAGE = "We couldn't reach QuickSurf. Check your connection and try again.";
 
-export function saveTokens(access: string, refresh?: string, remember = true) {
-  if (typeof window === "undefined") return;
-  const store = remember ? localStorage : sessionStorage;
-  store.setItem(ACCESS_KEY, access);
-  if (refresh) store.setItem(REFRESH_KEY, refresh);
-}
-
-export function clearTokens() {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    sessionStorage.removeItem(ACCESS_KEY);
-    sessionStorage.removeItem(REFRESH_KEY);
-  } catch {}
-}
-
-// Refresh access token once on 401
-async function refreshAccess(): Promise<string> {
-  const { refresh } = readTokens();
-  if (!refresh) throw new Error("No refresh token");
-  const res = await fetch(`${API_ROOT}/token/refresh/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh }),
-  });
-  if (!res.ok) throw new Error("Refresh failed");
-  const data = await res.json();
-  const access = data?.access as string | undefined;
-  if (!access) throw new Error("No access in refresh response");
-
-  const remember = refreshStoredInLocal();
-  saveTokens(access, undefined, remember);
-  return access;
-}
-
-// Prefix relative paths with API_ROOT
-type FetchInput = string | URL;
-function toUrl(input: FetchInput): FetchInput {
-  if (typeof input === "string" && input.startsWith("/")) {
-    // Accept legacy "/api/..." callers without generating "/api/api/...".
-    const withoutApiPrefix = input.replace(/^\/api(?=\/|$)/i, "");
-    return `${API_ROOT}${withoutApiPrefix || "/"}`;
-  }
-  return input;
-}
-
-/**
- * Fetch with Authorization header and single 401 retry via refresh.
- * Client-side only usage recommended.
- */
-export async function authFetch(
-  input: FetchInput,
-  init: RequestInit = {}
-): Promise<Response> {
-  const attempt = async (overrideAccess?: string) => {
-    const { access } = readTokens();
-    const token = overrideAccess ?? access ?? undefined;
-    const headers = new Headers(init.headers || {});
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    // do NOT send cookies
-    return fetch(toUrl(input) as RequestInfo, { ...init, headers });
-  };
-
-  let res = await attempt();
-  if (res.status !== 401) return res;
-
-  try {
-    const newAccess = await refreshAccess();
-    res = await attempt(newAccess);
-    return res;
-  } catch {
-    clearTokens();
-    return res; // still 401; caller can redirect to /login
-  }
-}
-
-export async function getAuthHeaders(): Promise<HeadersInit> {
-  const { access } = readTokens();
-  const h = new Headers();
-  if (access) h.set("Authorization", `Bearer ${access}`);
-  return h;
-}
-
-// JSON helpers (non-breaking, optional to use)
-async function jsonFetch<T = unknown>(
-  url: string,
-  init: RequestInit = {}
-): Promise<T> {
-  const headers = new Headers(init.headers || {});
-  if (!headers.has("Content-Type") && init.method && init.method !== "GET") {
-    headers.set("Content-Type", "application/json");
-  }
-  const res = await authFetch(url, { ...init, headers });
-  if (!res.ok) {
-    let errBody: any = null;
-    try {
-      errBody = await res.json();
-    } catch {}
-    const e = new Error(
-      `HTTP ${res.status} ${res.statusText}${
-        errBody ? ` – ${JSON.stringify(errBody)}` : ""
-      }`
-    );
-    // @ts-ignore attach extra context
-    (e as any).status = res.status;
-    // @ts-ignore attach body
-    (e as any).body = errBody;
-    throw e;
-  }
-  try {
-    return (await res.json()) as T;
-  } catch {
-    return undefined as T;
-  }
-}
-
-function get<T = unknown>(url: string, init?: RequestInit) {
-  return jsonFetch<T>(url, { ...init, method: "GET" });
-}
-function post<T = unknown>(url: string, body?: unknown, init?: RequestInit) {
-  return jsonFetch<T>(url, {
-    ...init,
-    method: "POST",
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-}
-function put<T = unknown>(url: string, body?: unknown, init?: RequestInit) {
-  return jsonFetch<T>(url, {
-    ...init,
-    method: "PUT",
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-}
-function del<T = unknown>(url: string, init?: RequestInit) {
-  return jsonFetch<T>(url, { ...init, method: "DELETE" });
-}
-
-// Default export: safe name "del" (not reserved) on the object
-const api = {
-  API_ROOT,
-  authFetch,
-  getAuthHeaders,
-  saveTokens,
-  clearTokens,
-  get,
-  post,
-  put,
-  del,
+type Envelope = {
+  error: { code?: string; message?: string; fields?: Record<string, unknown>; [key: string]: unknown };
+  request_id?: string;
 };
 
-export default api;
+function isEnvelope(body: unknown): body is Envelope {
+  if (typeof body !== "object" || body === null) return false;
+  const error = (body as { error?: unknown }).error;
+  return typeof error === "object" && error !== null;
+}
+
+function messages(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(messages);
+  if (value && typeof value === "object") return Object.values(value).flatMap(messages);
+  return value == null ? [] : [String(value)];
+}
+
+function fallbackMessage(status: number): string {
+  if (status === 429) return "Too many attempts. Please wait a moment and try again.";
+  if (status >= 500) return "Something went wrong on our side. Please try again.";
+  return "That didn't work. Please try again.";
+}
+
+export function toApiError(status: number, body: unknown): ApiError {
+  if (!isEnvelope(body)) {
+    return new ApiError({ status, code: status >= 500 ? "server_error" : "error", message: fallbackMessage(status) });
+  }
+  const { code, message, fields, ...extra } = body.error;
+  const normalized: FieldErrors = {};
+  for (const [name, value] of Object.entries(fields ?? {})) normalized[name] = messages(value);
+  return new ApiError({
+    status,
+    code: code ?? "error",
+    message: message || fallbackMessage(status),
+    fields: normalized,
+    extra,
+    requestId: body.request_id ?? null,
+  });
+}
+
+type Method = "GET" | "POST" | "PATCH" | "DELETE";
+export type RequestOptions = {
+  method?: Method;
+  body?: unknown;
+  /** Send the access token (default). Sign-in, sign-up and password reset don't. */
+  auth?: boolean;
+  signal?: AbortSignal;
+};
+
+async function send(path: string, options: RequestOptions, access?: string): Promise<Response> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  if (access) headers.Authorization = `Bearer ${access}`;
+  try {
+    return await fetch(`${API_ROOT}${path}`, {
+      method: options.method ?? "GET",
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      credentials: "omit",
+      cache: "no-store",
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new ApiError({ status: 0, code: "network_error", message: NETWORK_MESSAGE });
+  }
+}
+
+// ---------- Token refresh ----------
+// Refresh tokens rotate and a used one is rejected, so only one refresh may run at a time: one per
+// tab (the shared promise) and one per browser (a Web Lock), or two tabs would sign each other out.
+let refreshing: Promise<string | null> | null = null;
+
+async function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return navigator.locks.request("qs-token-refresh", fn);
+  }
+  return fn();
+}
+
+async function rotate(staleRefresh: string): Promise<string | null> {
+  const current = readTokens();
+  if (!current) return null;
+  if (current.refresh !== staleRefresh) return current.access; // another tab already refreshed
+  const res = await send("/token/refresh/", { method: "POST", body: { refresh: current.refresh } });
+  if (res.status === 400 || res.status === 401) return null; // the session is over
+  const body: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw toApiError(res.status, body);
+  const tokens = body as { access: string; refresh?: string };
+  saveTokens({ access: tokens.access, refresh: tokens.refresh ?? current.refresh });
+  return tokens.access;
+}
+
+/** A fresh access token, or null if the user has to sign in again. */
+export function refreshAccess(staleRefresh: string): Promise<string | null> {
+  refreshing ??= withRefreshLock(() => rotate(staleRefresh)).finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+function sessionExpired(): ApiError {
+  clearTokens();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  return new ApiError({ status: 401, code: "not_authenticated", message: "Please sign in again." });
+}
+
+/** The raw response, after one refresh-and-retry on 401. For JSON, use `request`. */
+export async function fetchResponse(path: string, options: RequestOptions = {}): Promise<Response> {
+  if (options.auth === false) return send(path, options);
+  const tokens = readTokens();
+  if (!tokens) throw sessionExpired();
+  const res = await send(path, options, tokens.access);
+  if (res.status !== 401) return res;
+  const access = await refreshAccess(tokens.refresh);
+  if (!access) throw sessionExpired();
+  return send(path, options, access);
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const res = await fetchResponse(path, options);
+  if (res.status === 204) return undefined as T;
+  const body: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw toApiError(res.status, body);
+  return body as T;
+}
+
+/** A message to show for any error thrown by the API client (or anything else). */
+export function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  return "Something went wrong. Please try again.";
+}
